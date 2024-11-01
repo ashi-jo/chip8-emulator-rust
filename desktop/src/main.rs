@@ -1,6 +1,12 @@
 use std::env;
+use std::fs::File;
+use std::io::Read;
 use chip8_core::*;
 use sdl2::event::Event;
+use sdl2::pixels::Color;
+use sdl2::rect::Rect;
+use sdl2::render::Canvas;
+use sdl2::video::Window;
 
 
 const SCALE: u32 = 15;
@@ -29,6 +35,15 @@ fn main() {
     canvas.clear();
     canvas.present();
 
+    // use backend
+    let mut chip8 = Emu::new();
+
+    let mut rom = File::open(&args[1]).expect("Unable to open file");
+    let mut buffer = Vec::new();
+
+    rom.read_to_end(&mut buffer).unwrap();
+    chip8.load(&buffer);
+    
     // for looping the game and closing the game
     let mut event_pump = sdl_context.event_pump().unwrap();
 
@@ -41,19 +56,30 @@ fn main() {
                 _ => ()
             }
         }
+
+        chip8.tick();
+        draw_screen(&chip8, &mut canvas);
     }
 }
 
-// Specifications
+fn draw_screen(emu: &Emu, canvas: &mut Canvas<Window>) {
+    // clear canvas as black
+    canvas.set_draw_color(Color::RGB(0, 0, 0));
+    canvas.clear();
 
-// 1. A 64x32 monochrome display, drawn to via sprites that are always 8 pixels wide and between 1 and 16 pixels tall
-// 2. Sixteen 8-bit general purpose registers, referred to as V0 thru VF. VF also doubles as the flag register for overflow operations
-// 3. 16-bit program counter
-// 4. Single 16-bit register used as a pointer for memory access, called the I Register
-// 5. 4KB RAM
-// 6. 16-bit stack used for calling and returning from subroutines
-// 7. 16-key keyboard input
-// 8. Two special registers which decrease each frame and trigger upon reaching zero:
+    let screen_buf = emu.get_display();
+    // Now set draw color to white, iterate through each point and see if it should be drawn
+    canvas.set_draw_color(Color::RGB(255, 255, 255));
+    for (i, pixel) in screen_buf.iter().enumerate() {
+        if *pixel {
+            // Convert our 1D array's index into a 2D (x,y) position
+            let x = (i % SCREEN_WIDTH) as u32;
+            let y = (i / SCREEN_WIDTH) as u32;
 
-//Delay timer: Used for time-based game events
-//Sound timer: Used to trigger the audio beep
+            // Draw a rectangle at (x,y), scaled up by our SCALE value
+            let rect = Rect::new((x * SCALE) as i32, (y * SCALE) as i32, SCALE, SCALE);
+            canvas.fill_rect(rect).unwrap();
+        }
+    }
+    canvas.present();
+}
