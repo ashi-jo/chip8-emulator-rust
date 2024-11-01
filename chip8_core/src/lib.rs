@@ -3,10 +3,11 @@ use rand::random;
 pub const SCREEN_WIDTH: usize = 64;
 pub const SCREEN_HEIGHT: usize = 32;
 
+const START_ADDR: u16 = 0x200;
 const NUM_REGS: usize = 16;
 const RAM_SIZE: usize = 4096;
 const STACK_SIZE: usize = 16;
-const NUM_SIZE: usize = 16;
+const NUM_KEYS: usize = 16;
 
 const FONTSET_SIZE: usize = 80;
 
@@ -42,12 +43,6 @@ pub struct Emu {
     st: u8,
 }
 
-// -- Unchanged code omitted --
-
-const START_ADDR: u16 = 0x200;
-
-// -- Unchanged code omitted --
-
 impl Emu {
     pub fn new() -> Self {
         let mut new_emu = Self {
@@ -61,9 +56,9 @@ impl Emu {
             keys: [false; NUM_KEYS],
             dt: 0,
             st: 0,
-        }
+        };
 
-        new_emu.ram[..FONTSET_SIZE].copy_from_slice(&FONTSET)
+        new_emu.ram[..FONTSET_SIZE].copy_from_slice(&FONTSET);
 
         new_emu
     }
@@ -110,30 +105,30 @@ impl Emu {
         let digit4 = op & 0x000F;
 
         match (digit1, digit2, digit3, digit4) {
-            let dig2_usize = digit2 as usize;
-            let dig3_usize = digit3 as usize;
 
             // LOAD V0 - VX
             (0xF, _, 6, 5) => {
+                let x = digit2 as usize;
                 let i = self.i_reg as usize;
-                for idx in 0..=dig2_usize {
-                    self.v_reg[idx] = self.ram[dig2_usize + idx];
+                for idx in 0..=x {
+                    self.v_reg[idx] = self.ram[x + idx];
                 }
             },
             // STORE V0 - VX
             (0xF, _, 5, 5) => {
+                let x = digit2 as usize;
                 let i = self.i_reg as usize;
-                for idx in 0..=dig2_usize {
-                    self.ram[dig2_usize + idx] = self.v_reg[idx];
+                for idx in 0..=x {
+                    self.ram[x + idx] = self.v_reg[idx];
                 }
             },
             // convert from HEX to BCD for display purposes
             (0xF, _, _, 3) => {
-                let vx = self.v_reg[dig2_usize] as f32;
+                let vx = self.v_reg[digit2 as usize] as f32;
                 
                 let hundereds = (vx / 100.0).floor() as u8;
                 let tens = ((vx / 10.0) % 10.0).floor() as u8;
-                let ones = (vx % 10) as u8;
+                let ones = (vx % 10.0) as u8;
 
                 self.ram[self.i_reg as usize] = hundereds;
                 self.ram[(self.i_reg + 1) as usize] = tens;
@@ -141,28 +136,28 @@ impl Emu {
             },
             // I = FONT
             (0xF, _, 2, 9) => {
-                let c = self.v_reg[dig2_usize] as u16;
+                let c = self.v_reg[digit2 as usize] as u16;
                 self.i_reg = c * 5;
             },
             // I += VX
             (0xF, _, 1, 0xE) => {
-                let vx = self.v_reg[dig2_usize] as u16;
+                let vx = self.v_reg[digit2 as usize] as u16;
                 self.i_reg = self.i_reg.wrapping_add(vx); 
             }
             // ST = VX
             (0xF, _, 1, 8) => {
-                self.st = self.v_reg[dig2_usize];
+                self.st = self.v_reg[digit2 as usize];
             },
             // DT = VX
             (0xF, _, 1, 5) => {
-                self.dt = self.v_reg[dig2_usize];
+                self.dt = self.v_reg[digit2 as usize];
             },
             // wait key 
             (0xF, _, 0, 0xA) => {
                 let mut pressed = false;
                 for i in 0..self.keys.len() {
                     if self.keys[i] {
-                        self.v_reg[dig2_usize] = i as u8;
+                        self.v_reg[digit2 as usize] = i as u8;
                         pressed = true;
                         break;
                     }
@@ -175,19 +170,19 @@ impl Emu {
             },
             // VX = DT
             (0xF, _, 0, 7) => {
-                self.v_reg[dig2_usize] = self.dt;
+                self.v_reg[digit2 as usize] = self.dt;
             },
-            //skip if key not press 
-            (0xA, _, 0xA, 1) = {
-                let vx = self.v_reg[dig2_usize];
+            // skip if key not press 
+            (0xA, _, 0xA, 1) => {
+                let vx = self.v_reg[digit2 as usize];
                 let key = self.keys[vx as usize];
                 if !key {
                     self.pc += 2;
                 }
             },
-            //skip key press 
-            (0xE, _, 9, 0xE) = {
-                let vx = self.v_reg[dig2_usize];
+            // skip key press 
+            (0xE, _, 9, 0xE) => {
+                let vx = self.v_reg[digit2 as usize];
                 let key = self.keys[vx as usize];
                 if key {
                     self.pc += 2;
@@ -195,8 +190,8 @@ impl Emu {
             },
             // Draw
             (0xD, _, _, _) => {
-                let x_coord = self.v_reg[dig2_usize] as u16;
-                let y_coord = self.v_reg[dig3_usize] as u16;
+                let x_coord = self.v_reg[digit2 as usize] as u16;
+                let y_coord = self.v_reg[digit3 as usize] as u16;
                 // last digit tells us how high our sprite (drawing is going to be)
                 let num_rows = digit4;
 
@@ -237,7 +232,7 @@ impl Emu {
             (0xC, _, _, _) => {
                 let nn = (op & 0xFF) as u8;
                 let rng: u8 = random();
-                self.v_reg[dig2_usize] = rng & nn;
+                self.v_reg[digit2 as usize] = rng & nn;
             },
             // JMP V0 + NNN
             (0xB, _, _, _) => {
@@ -251,93 +246,93 @@ impl Emu {
             },
             // SKIP VX != VY
             (9, _, _, 0) => {
-                self.v_reg[dig2_usize] != self.v_reg[dig3_usize] {
+                if self.v_reg[digit2 as usize] != self.v_reg[digit3 as usize] {
                     self.pc += 2;
                 }
             },
             // VX <<= 1
             (8, _, _, 0xE) => {
-                let msb = (self.v_reg[dig2_usize] >> 7) & 1;
-                self.v_reg[dig2_usize] <<= 1;
+                let msb = (self.v_reg[digit2 as usize] >> 7) & 1;
+                self.v_reg[digit2 as usize] <<= 1;
                 self.v_reg[0xF] = msb;
             },
             // VX = VY - VX
             (8, _, _, 7) => {
-                let (new_vx, borrow) = self.v_reg[dig3_usize].owerflowing_sub(self.v_reg[dig2_usize])
+                let (new_vx, borrow) = self.v_reg[digit3 as usize].overflowing_sub(self.v_reg[digit2 as usize]);
                 let new_vf = if borrow {0} else {1};
-                self.v_reg[dig2_usize] = new_vx;
+                self.v_reg[digit2 as usize] = new_vx;
                 self.v_reg[0xF] = new_vf;
             },
             // VX >>= 1
             (8, _, _, 6) => {
-                let lsb = self.v_reg[dig2_usize] & 1;
-                self.v_reg[dig2_usize] >>= 1;
+                let lsb = self.v_reg[digit2 as usize] & 1;
+                self.v_reg[digit2 as usize] >>= 1;
                 self.v_reg[0xF] = lsb;
             },
             // VX -= VY
             (8, _, _, 5) => {
-                let (new_vx, borrow) = self.v_reg[dig2_usize].owerflowing_sub(self.v_reg[dig3_usize])
+                let (new_vx, borrow) = self.v_reg[digit2 as usize].overflowing_sub(self.v_reg[digit3 as usize]);
                 let new_vf = if borrow {0} else {1};
-                self.v_reg[dig2_usize] = new_vx;
+                self.v_reg[digit2 as usize] = new_vx;
                 self.v_reg[0xF] = new_vf;
             },
             // VX += VY
             (8, _, _, 4) => {
-                let (new_vx, carry) = self.v_reg[dig2_usize].owerflowing_add(self.v_reg[dig3_usize])
+                let (new_vx, carry) = self.v_reg[digit2 as usize].overflowing_add(self.v_reg[digit3 as usize]);
                 let new_vf = if carry {1} else {0};
-                self.v_reg[dig2_usize] = new_vx;
+                self.v_reg[digit2 as usize] = new_vx;
                 self.v_reg[0xF] = new_vf;
             },
             // VX ^= VY
             (8, _, _, 1) => {
-                self.v_reg[dig2_usize] ^= self.v_reg[dig3_usize];
+                self.v_reg[digit2 as usize] ^= self.v_reg[digit3 as usize];
             },
             // VX &= VY
             (8, _, _, 1) => {
-                self.v_reg[dig2_usize] &= self.v_reg[dig3_usize];
+                self.v_reg[digit2 as usize] &= self.v_reg[digit3 as usize];
             },
             // VX |= VY
             (8, _, _, 1) => {
-                self.v_reg[dig2_usize] |= self.v_reg[dig3_usize];
+                self.v_reg[digit2 as usize] |= self.v_reg[digit3 as usize];
             },
             // VX = VY from reg
             (8, _, _, _) => {
-                self.v_reg[dig2_usize] = self.v_reg[dig3_usize];
+                self.v_reg[digit2 as usize] = self.v_reg[digit3 as usize];
             },
             //  VX += NN
             (7, _, _, _) => {
                 let nn = (op & 0xFF) as u8;
-                self.v_reg[dig2_usize].wrapping_add(nn);
+                self.v_reg[digit2 as usize].wrapping_add(nn);
             },
             // set nn VX = NN
             (6, _, _, _) => {
                 let nn = (op & 0xFF) as u8;
-                self.v_reg[dig2_usize] = nn;
+                self.v_reg[digit2 as usize] = nn;
             },
             // SKIP VX == VY
             (5, _, _, 0) => {
-                if self.v_reg[dig2_usize] == self.v_reg[dig3_usize] {
+                if self.v_reg[digit2 as usize] == self.v_reg[digit3 as usize] {
                     self.pc += 2;
                 }
             },
             // Skip VX != NN
             (4, _, _, _) => {
                 let nn = (op & 0xFF) as u8;
-                if self.v_reg[dig2_usize] != nn {
+                if self.v_reg[digit2 as usize] != nn {
                     self.pc +=2;
                 }
             },
             // Skip VX == NN
             (3, _, _, _) => {
                 let nn = (op & 0xFF) as u8;
-                if self.v_reg[dig2_usize] == nn {
+                if self.v_reg[digit2 as usize] == nn {
                     self.pc +=2;
                 }
             },
             // 2NNN call subroutine
             (2, _, _, _) => {
                 let nnn = op & 0x0FFF;
-                self.push(self.pc)
+                self.push(self.pc);
                 self.pc = nnn;
             },
             // Jump to NNN
@@ -377,7 +372,7 @@ impl Emu {
         if self.st > 0 {
             if self.st == 1 {
                 // BEEP
-                println("Must BEEP");
+                println!("Must BEEP");
             }
             self.st -= 1;
         }
