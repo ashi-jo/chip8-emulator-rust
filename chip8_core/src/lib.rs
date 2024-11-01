@@ -111,7 +111,7 @@ impl Emu {
                 let x = digit2 as usize;
                 let i = self.i_reg as usize;
                 for idx in 0..=x {
-                    self.v_reg[idx] = self.ram[x + idx];
+                    self.v_reg[idx] = self.ram[i + idx];
                 }
             },
             // STORE V0 - VX
@@ -119,7 +119,7 @@ impl Emu {
                 let x = digit2 as usize;
                 let i = self.i_reg as usize;
                 for idx in 0..=x {
-                    self.ram[x + idx] = self.v_reg[idx];
+                    self.ram[i + idx] = self.v_reg[idx];
                 }
             },
             // convert from HEX to BCD for display purposes
@@ -173,7 +173,7 @@ impl Emu {
                 self.v_reg[digit2 as usize] = self.dt;
             },
             // skip if key not press 
-            (0xA, _, 0xA, 1) => {
+            (0xE, _, 0xA, 1) => {
                 let vx = self.v_reg[digit2 as usize];
                 let key = self.keys[vx as usize];
                 if !key {
@@ -284,11 +284,11 @@ impl Emu {
                 self.v_reg[0xF] = new_vf;
             },
             // VX ^= VY
-            (8, _, _, 1) => {
+            (8, _, _, 3) => {
                 self.v_reg[digit2 as usize] ^= self.v_reg[digit3 as usize];
             },
             // VX &= VY
-            (8, _, _, 1) => {
+            (8, _, _, 2) => {
                 self.v_reg[digit2 as usize] &= self.v_reg[digit3 as usize];
             },
             // VX |= VY
@@ -302,7 +302,7 @@ impl Emu {
             //  VX += NN
             (7, _, _, _) => {
                 let nn = (op & 0xFF) as u8;
-                self.v_reg[digit2 as usize].wrapping_add(nn);
+                self.v_reg[digit2 as usize] = self.v_reg[digit2 as usize].wrapping_add(nn);
             },
             // set nn VX = NN
             (6, _, _, _) => {
